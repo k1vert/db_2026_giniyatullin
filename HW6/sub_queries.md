@@ -1,9 +1,11 @@
+'''sql
 SELECT 
     car_model.brand,
     car_model.model,
     (SELECT COUNT(*) FROM repair_order WHERE repair_order.car_id = car.id) AS total_orders
 FROM car
 JOIN car_model ON car_model.id = car.model_id;
+'''
 
 SELECT 
     client.name,
