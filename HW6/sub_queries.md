@@ -1,412 +1,203 @@
-```sql
-
 SELECT 
-
-&#x20;   car\_model.brand,
-
-&#x20;   car\_model.model,
-
-&#x20;   (SELECT COUNT(\*) FROM repair\_order WHERE repair\_order.car\_id = car.id) AS total\_orders
-
+    car_model.brand,
+    car_model.model,
+    (SELECT COUNT(*) FROM repair_order WHERE repair_order.car_id = car.id) AS total_orders
 FROM car
-
-JOIN car\_model ON car\_model.id = car.model\_id;
-
-
+JOIN car_model ON car_model.id = car.model_id;
 
 SELECT 
-
-&#x20;   client.name,
-
-&#x20;   (SELECT SUM(order\_part.price\_at\_purchase \* order\_part.quantity) 
-
-&#x20;    FROM car
-
-&#x20;    JOIN repair\_order ON repair\_order.car\_id = car.id
-
-&#x20;    JOIN order\_part ON order\_part.order\_id = repair\_order.id
-
-&#x20;    WHERE car.client\_id = client.id) AS total\_spent
-
+    client.name,
+    (SELECT SUM(order_part.price_at_purchase * order_part.quantity) 
+     FROM car
+     JOIN repair_order ON repair_order.car_id = car.id
+     JOIN order_part ON order_part.order_id = repair_order.id
+     WHERE car.client_id = client.id) AS total_spent
 FROM client;
 
-
-
-SELECT AVG(sub.experience\_years) AS avg\_exp
-
+SELECT AVG(sub.experience_years) AS avg_exp
 FROM (
-
-&#x20;   SELECT mechanic.experience\_years, COUNT(repair\_order.id) AS order\_count
-
-&#x20;   FROM mechanic
-
-&#x20;   LEFT JOIN repair\_order ON repair\_order.mechanic\_id = mechanic.id
-
-&#x20;   GROUP BY mechanic.id, mechanic.experience\_years
-
+    SELECT mechanic.experience_years, COUNT(repair_order.id) AS order_count
+    FROM mechanic
+    LEFT JOIN repair_order ON repair_order.mechanic_id = mechanic.id
+    GROUP BY mechanic.id, mechanic.experience_years
 ) sub
+WHERE sub.order_count > 0;
 
-WHERE sub.order\_count > 0;
-
-
-
-SELECT MAX(order\_cost) AS max\_order\_sum
-
+SELECT MAX(order_cost) AS max_order_sum
 FROM (
-
-&#x20;   SELECT order\_id, SUM(price\_at\_purchase \* quantity) AS order\_cost
-
-&#x20;   FROM order\_part
-
-&#x20;   GROUP BY order\_id
-
+    SELECT order_id, SUM(price_at_purchase * quantity) AS order_cost
+    FROM order_part
+    GROUP BY order_id
 ) t;
 
-
-
-SELECT \*
-
+SELECT *
 FROM client
+WHERE is_vip = TRUE 
+  AND id IN (SELECT client_id FROM car);
 
-WHERE is\_vip = TRUE 
-
-&#x20; AND id IN (SELECT client\_id FROM car);
-
-
-
-SELECT \*
-
-FROM repair\_order
-
-WHERE car\_id IN (
-
-&#x20;   SELECT id 
-
-&#x20;   FROM car 
-
-&#x20;   WHERE release\_year < 2020
-
+SELECT *
+FROM repair_order
+WHERE car_id IN (
+    SELECT id 
+    FROM car 
+    WHERE release_year < 2020
 );
 
-
-
-SELECT mechanic\_id, COUNT(\*) AS orders\_count
-
-FROM repair\_order
-
-GROUP BY mechanic\_id
-
-HAVING COUNT(\*) > (
-
-&#x20;   SELECT AVG(cnt) 
-
-&#x20;   FROM (SELECT COUNT(\*) AS cnt FROM repair\_order GROUP BY mechanic\_id) sub
-
+SELECT mechanic_id, COUNT(*) AS orders_count
+FROM repair_order
+GROUP BY mechanic_id
+HAVING COUNT(*) > (
+    SELECT AVG(cnt) 
+    FROM (SELECT COUNT(*) AS cnt FROM repair_order GROUP BY mechanic_id) sub
 );
 
-
-
-SELECT order\_id, SUM(price\_at\_purchase \* quantity) AS order\_total
-
-FROM order\_part
-
-GROUP BY order\_id
-
-HAVING SUM(price\_at\_purchase \* quantity) > (
-
-&#x20;   SELECT AVG(order\_sum) 
-
-&#x20;   FROM (
-
-&#x20;       SELECT SUM(price\_at\_purchase \* quantity) AS order\_sum 
-
-&#x20;       FROM order\_part 
-
-&#x20;       GROUP BY order\_id
-
-&#x20;   ) t
-
+SELECT order_id, SUM(price_at_purchase * quantity) AS order_total
+FROM order_part
+GROUP BY order_id
+HAVING SUM(price_at_purchase * quantity) > (
+    SELECT AVG(order_sum) 
+    FROM (
+        SELECT SUM(price_at_purchase * quantity) AS order_sum 
+        FROM order_part 
+        GROUP BY order_id
+    ) t
 );
 
-
-
-SELECT \*
-
+SELECT *
 FROM car
+WHERE release_year >= ALL (SELECT release_year FROM car);
 
-WHERE release\_year >= ALL (SELECT release\_year FROM car);
-
-
-
-SELECT \*
-
+SELECT *
 FROM mechanic
+WHERE experience_years >= ALL (SELECT experience_years FROM mechanic);
 
-WHERE experience\_years >= ALL (SELECT experience\_years FROM mechanic);
-
-
-
-SELECT \*
-
-FROM order\_part
-
-WHERE order\_id IN (
-
-&#x20;   SELECT id 
-
-&#x20;   FROM repair\_order 
-
-&#x20;   WHERE status = 'Выполнен'
-
+SELECT *
+FROM order_part
+WHERE order_id IN (
+    SELECT id 
+    FROM repair_order 
+    WHERE status = 'Выполнен'
 );
 
-
-
-SELECT \*
-
+SELECT *
 FROM client
-
 WHERE id IN (
-
-&#x20;   SELECT car.client\_id 
-
-&#x20;   FROM car
-
-&#x20;   JOIN repair\_order ON repair\_order.car\_id = car.id
-
-&#x20;   WHERE repair\_order.mechanic\_id = 1
-
+    SELECT car.client_id 
+    FROM car
+    JOIN repair_order ON repair_order.car_id = car.id
+    WHERE repair_order.mechanic_id = 1
 );
 
-
-
-SELECT \*
-
+SELECT *
 FROM car
-
-WHERE release\_year >= ANY (
-
-&#x20;   SELECT release\_year 
-
-&#x20;   FROM car 
-
-&#x20;   WHERE client\_id = 1
-
+WHERE release_year >= ANY (
+    SELECT release_year 
+    FROM car 
+    WHERE client_id = 1
 );
 
-
-
-SELECT \*
-
+SELECT *
 FROM mechanic
-
-WHERE experience\_years = ANY (
-
-&#x20;   SELECT mechanic.experience\_years 
-
-&#x20;   FROM mechanic
-
-&#x20;   JOIN mechanic\_specialization ON mechanic\_specialization.mechanic\_id = mechanic.id
-
-&#x20;   WHERE mechanic\_specialization.specialization\_id = 1
-
+WHERE experience_years = ANY (
+    SELECT mechanic.experience_years 
+    FROM mechanic
+    JOIN mechanic_specialization ON mechanic_specialization.mechanic_id = mechanic.id
+    WHERE mechanic_specialization.specialization_id = 1
 );
 
-
-
-SELECT \*
-
+SELECT *
 FROM client
-
 WHERE EXISTS (
-
-&#x20;   SELECT 1 
-
-&#x20;   FROM client AS sub\_client 
-
-&#x20;   WHERE sub\_client.id = client.id AND sub\_client.address IS NOT NULL
-
+    SELECT 1 
+    FROM client AS sub_client 
+    WHERE sub_client.id = client.id AND sub_client.address IS NOT NULL
 );
 
-
-
-SELECT \*
-
+SELECT *
 FROM mechanic
-
 WHERE EXISTS (
-
-&#x20;   SELECT 1 
-
-&#x20;   FROM repair\_order 
-
-&#x20;   WHERE repair\_order.mechanic\_id = mechanic.id 
-
-&#x20;     AND repair\_order.status = 'В работе'
-
+    SELECT 1 
+    FROM repair_order 
+    WHERE repair_order.mechanic_id = mechanic.id 
+      AND repair_order.status = 'В работе'
 );
 
-
-
-SELECT \*
-
-FROM repair\_order
-
-WHERE (car\_id, mechanic\_id) IN (
-
-&#x20;   SELECT MIN(car\_id), MIN(mechanic\_id) 
-
-&#x20;   FROM repair\_order 
-
-&#x20;   GROUP BY status
-
+SELECT *
+FROM repair_order
+WHERE (car_id, mechanic_id) IN (
+    SELECT MIN(car_id), MIN(mechanic_id) 
+    FROM repair_order 
+    GROUP BY status
 );
 
-
-
-SELECT \*
-
-FROM car\_model
-
+SELECT *
+FROM car_model
 WHERE (brand, model) IN (
-
-&#x20;   SELECT brand, MIN(model) 
-
-&#x20;   FROM car\_model 
-
-&#x20;   GROUP BY brand
-
+    SELECT brand, MIN(model) 
+    FROM car_model 
+    GROUP BY brand
 );
 
-
-
-SELECT \*
-
-FROM car AS car\_outer
-
-WHERE release\_year > (
-
-&#x20;   SELECT AVG(car\_inner.release\_year)
-
-&#x20;   FROM car AS car\_inner
-
-&#x20;   WHERE car\_inner.client\_id = car\_outer.client\_id
-
+SELECT *
+FROM car AS car_outer
+WHERE release_year > (
+    SELECT AVG(car_inner.release_year)
+    FROM car AS car_inner
+    WHERE car_inner.client_id = car_outer.client_id
 );
 
-
-
-SELECT \*
-
-FROM order\_part AS part\_outer
-
-WHERE price\_at\_purchase > (
-
-&#x20;   SELECT AVG(part\_inner.price\_at\_purchase)
-
-&#x20;   FROM order\_part AS part\_inner
-
-&#x20;   WHERE part\_inner.order\_id = part\_outer.order\_id
-
+SELECT *
+FROM order_part AS part_outer
+WHERE price_at_purchase > (
+    SELECT AVG(part_inner.price_at_purchase)
+    FROM order_part AS part_inner
+    WHERE part_inner.order_id = part_outer.order_id
 );
 
-
-
-SELECT \*
-
-FROM mechanic AS mech\_outer
-
-WHERE experience\_years > (
-
-&#x20;   SELECT AVG(mech\_inner.experience\_years)
-
-&#x20;   FROM mechanic AS mech\_inner
-
-&#x20;   JOIN mechanic\_specialization AS spec\_inner ON spec\_inner.mechanic\_id = mech\_inner.id
-
-&#x20;   WHERE spec\_inner.specialization\_id IN (
-
-&#x20;       SELECT spec\_outer.specialization\_id 
-
-&#x20;       FROM mechanic\_specialization AS spec\_outer 
-
-&#x20;       WHERE spec\_outer.mechanic\_id = mech\_outer.id
-
-&#x20;   )
-
+SELECT *
+FROM mechanic AS mech_outer
+WHERE experience_years > (
+    SELECT AVG(mech_inner.experience_years)
+    FROM mechanic AS mech_inner
+    JOIN mechanic_specialization AS spec_inner ON spec_inner.mechanic_id = mech_inner.id
+    WHERE spec_inner.specialization_id IN (
+        SELECT spec_outer.specialization_id 
+        FROM mechanic_specialization AS spec_outer 
+        WHERE spec_outer.mechanic_id = mech_outer.id
+    )
 );
 
-
-
-SELECT \*
-
-FROM repair\_order AS order\_outer
-
+SELECT *
+FROM repair_order AS order_outer
 WHERE (
-
-&#x20;   SELECT SUM(order\_part.quantity) 
-
-&#x20;   FROM order\_part 
-
-&#x20;   WHERE order\_part.order\_id = order\_outer.id
-
+    SELECT SUM(order_part.quantity) 
+    FROM order_part 
+    WHERE order_part.order_id = order_outer.id
 ) > (
-
-&#x20;   SELECT AVG(order\_qty)
-
-&#x20;   FROM (
-
-&#x20;       SELECT SUM(order\_part\_sub.quantity) AS order\_qty
-
-&#x20;       FROM repair\_order AS order\_inner
-
-&#x20;       JOIN order\_part AS order\_part\_sub ON order\_part\_sub.order\_id = order\_inner.id
-
-&#x20;       WHERE order\_inner.mechanic\_id = order\_outer.mechanic\_id
-
-&#x20;       GROUP BY order\_inner.id
-
-&#x20;   ) sub
-
+    SELECT AVG(order_qty)
+    FROM (
+        SELECT SUM(order_part_sub.quantity) AS order_qty
+        FROM repair_order AS order_inner
+        JOIN order_part AS order_part_sub ON order_part_sub.order_id = order_inner.id
+        WHERE order_inner.mechanic_id = order_outer.mechanic_id
+        GROUP BY order_inner.id
+    ) sub
 );
 
-
-
-SELECT \*
-
-FROM client AS client\_outer
-
-WHERE is\_vip = TRUE
-
-&#x20; AND (
-
-&#x20;     SELECT COUNT(\*) 
-
-&#x20;     FROM car 
-
-&#x20;     WHERE car.client\_id = client\_outer.id
-
-&#x20; ) > (
-
-&#x20;     SELECT AVG(car\_count)
-
-&#x20;     FROM (
-
-&#x20;         SELECT COUNT(\*) AS car\_count
-
-&#x20;         FROM car AS car\_sub
-
-&#x20;         JOIN client AS client\_sub ON client\_sub.id = car\_sub.client\_id
-
-&#x20;         WHERE client\_sub.is\_vip = TRUE
-
-&#x20;         GROUP BY client\_sub.id
-
-&#x20;     ) sub\_avg
-
-&#x20; );
-
-
-
-```
-
+SELECT *
+FROM client AS client_outer
+WHERE is_vip = TRUE
+  AND (
+      SELECT COUNT(*) 
+      FROM car 
+      WHERE car.client_id = client_outer.id
+  ) > (
+      SELECT AVG(car_count)
+      FROM (
+          SELECT COUNT(*) AS car_count
+          FROM car AS car_sub
+          JOIN client AS client_sub ON client_sub.id = car_sub.client_id
+          WHERE client_sub.is_vip = TRUE
+          GROUP BY client_sub.id
+      ) sub_avg
+  );
