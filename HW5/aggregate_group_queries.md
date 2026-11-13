@@ -25,25 +25,25 @@ FROM repair_order;
 ### 2.1. Общая стоимость всех использованных запчастей
 
 ```sql
-SELECT COALESCE(SUM(quantity * price_at_purchase), 0) AS total_parts_cost
+SELECT SUM(quantity * price_at_purchase) AS total_parts_cost
 FROM order_part;
 ```
 
-Ожидаемый результат: суммарная стоимость всех позиций запчастей с учётом количества и цены на момент покупки. При отсутствии позиций выводится 0.
+Ожидаемый результат: суммарная стоимость всех позиций запчастей с учётом количества и цены на момент покупки. При отсутствии позиций выводится NULL.
 
 ### 2.2. Стоимость запчастей по каждому заказу
 
 ```sql
 SELECT
     ro.id AS order_id,
-    COALESCE(SUM(op.quantity * op.price_at_purchase), 0) AS parts_cost
+    SUM(op.quantity * op.price_at_purchase) AS parts_cost
 FROM repair_order ro
 LEFT JOIN order_part op ON op.order_id = ro.id
 GROUP BY ro.id
 ORDER BY ro.id;
 ```
 
-Ожидаемый результат: идентификатор каждого заказа и сумма затрат на запчасти в нём, включая заказы без запчастей с суммой 0.
+Ожидаемый результат: идентификатор каждого заказа и сумма затрат на запчасти в нём, включая заказы без запчастей с суммой NULL.
 
 ## 3. AVG()
 
