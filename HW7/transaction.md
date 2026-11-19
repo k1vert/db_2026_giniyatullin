@@ -27,6 +27,8 @@ SELECT id, name, experience_years FROM mechanic WHERE id = 1;
 
 *Результат:* Заказ создан, стаж механика успешно увеличен на 1.
 
+<img width="496" height="105" alt="img1" src="https://github.com/user-attachments/assets/87af460e-486b-4c8e-8105-35ff30711899" />
+
 #### Сценарий 2
 
 ```sql
