@@ -51,6 +51,7 @@ SELECT id, status FROM repair_order WHERE id = 1;
 ```
 
 *Результат:* Запчасть привязана к заказу, статус заказа обновлён.
+<img width="387" height="113" alt="Screenshot 2026-11-19 at 21 20 36" src="https://github.com/user-attachments/assets/4aae3c57-6e7d-4c49-add7-7e2f85402e91" />
 
 
 ---
@@ -80,6 +81,7 @@ SELECT id, status FROM repair_order WHERE id = 1;
 ```
 
 *Результат:* Запрос возвращает 0 строк, статус первого заказа остался прежним.
+<img width="315" height="87" alt="Screenshot 2026-11-19 at 21 20 49" src="https://github.com/user-attachments/assets/262f4f37-fb37-4987-9045-7afebec1369c" />
 
 
 #### Сценарий 2
@@ -104,6 +106,7 @@ SELECT id, list_price FROM part_catalog WHERE id = 2;
 ```
 
 *Результат:* Изменения полностью отменены, состояние таблиц вернулось к исходному.
+<img width="289" height="77" alt="Screenshot 2026-11-19 at 21 21 14" src="https://github.com/user-attachments/assets/f3df536e-8113-456d-8b99-79113616c659" />
 
 ---
 
@@ -133,6 +136,7 @@ SELECT * FROM repair_order WHERE description = 'Заказ перед ошибк
 
 *Результат:* Ошибка `ERROR: division by zero`. Все команды до ошибки автоматически откатаны.
 
+<img width="393" height="72" alt="Screenshot 2026-11-19 at 21 21 34" src="https://github.com/user-attachments/assets/8f9575fb-15e1-4c01-bc6a-b142cbe24150" />
 
 #### Сценарий 2. Нарушение внешнего ключа
 
@@ -154,6 +158,7 @@ SELECT id, status FROM repair_order WHERE id = 1;
 ```
 
 *Результат:* Ошибка `ERROR: insert or update on table "repair_order" violates foreign key constraint`. Транзакция прервана.
+<img width="643" height="109" alt="Screenshot 2026-11-19 at 21 23 47" src="https://github.com/user-attachments/assets/f7d36087-e7f8-4dcc-9680-2ded4aedb135" />
 
 ---
 
@@ -183,6 +188,7 @@ COMMIT;
 ```
 
 *Результат:* Сессия 2 видит исходное значение цены. В PostgreSQL `READ UNCOMMITTED` работает как `READ COMMITTED`, грязное чтение исключено.
+<img width="164" height="69" alt="Screenshot 2026-11-19 at 21 26 52" src="https://github.com/user-attachments/assets/78edd914-80dd-4c96-a11b-b14df5e4e2bc" />
 
 
 #### Сценарий 2. Видимость только после фиксации
@@ -205,6 +211,7 @@ COMMIT;
 SELECT status FROM repair_order WHERE id = 1;
 COMMIT;
 ```
+<img width="163" height="63" alt="Screenshot 2026-11-19 at 21 29 16" src="https://github.com/user-attachments/assets/720b8c88-7010-47ef-8aed-8023b3e6900c" />
 
 *Результат:* Изменения становятся доступны для Сессии 2 строго после `COMMIT` в Сессии 1.
 
@@ -233,6 +240,7 @@ COMMIT;
 ```
 
 *Результат:* В рамках одной транзакции получены разные значения цены строки до и после коммита параллельной сессии.
+<img width="205" height="62" alt="Screenshot 2026-11-19 at 21 28 26" src="https://github.com/user-attachments/assets/7c6fdb60-282c-48b2-88b3-dd91e83c4cce" />
 
 
 #### Сценарий 2
@@ -257,6 +265,7 @@ COMMIT;
 
 *Результат:* Демонстрация неповторяющегося чтения при параллельном `UPDATE`.
 
+<img width="200" height="73" alt="Screenshot 2026-11-19 at 21 29 59" src="https://github.com/user-attachments/assets/fab4358b-dafa-4d1e-aab6-fb840b67ea1a" />
 
 ---
 
