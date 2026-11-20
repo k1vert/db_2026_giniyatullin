@@ -1,354 +1,376 @@
-# HW5. Агрегатные функции и группировка данных
+HW6. Подзапросы (Subqueries)
 
-## 1. COUNT()
+1. Скалярные подзапросы в SELECT
 
-### 1.1. Общее количество заказов на ремонт
+1.1. Количество заказов по каждому автомобилю
 
-```sql
-SELECT COUNT(*) AS total_orders
-FROM repair_order;
-```
-
-Ожидаемый результат: одно число — количество всех зарегистрированных заказов на ремонт.
-
-### 1.2. Количество автомобилей, хотя бы раз поступавших в ремонт
-
-```sql
-SELECT COUNT(DISTINCT car_id) AS repaired_cars
-FROM repair_order;
-```
-
-Ожидаемый результат: количество различных автомобилей, для которых создан хотя бы один заказ, без повторного учёта одного автомобиля.
-
-## 2. SUM()
-
-### 2.1. Общая стоимость всех использованных запчастей
-
-```sql
-SELECT SUM(quantity * price_at_purchase) AS total_parts_cost
-FROM order_part;
-```
-
-Ожидаемый результат: суммарная стоимость всех позиций запчастей с учётом количества и цены на момент покупки. При отсутствии позиций выводится NULL.
-
-### 2.2. Стоимость запчастей по каждому заказу
-
-```sql
 SELECT
-    ro.id AS order_id,
-    SUM(op.quantity * op.price_at_purchase) AS parts_cost
-FROM repair_order ro
-LEFT JOIN order_part op ON op.order_id = ro.id
-GROUP BY ro.id
-ORDER BY ro.id;
-```
+    car_model.brand,
+    car_model.model,
+    (
+        SELECT COUNT(*)
+        FROM repair_order
+        WHERE repair_order.car_id = car.id
+    ) AS total_orders
+FROM car
+JOIN car_model ON car_model.id = car.model_id;
 
-Ожидаемый результат: идентификатор каждого заказа и сумма затрат на запчасти в нём, включая заказы без запчастей с суммой NULL.
 
-## 3. AVG()
+Ожидаемый результат: выводятся все автомобили с маркой и моделью, а также точное количество зарегистрированных для каждого авто заказов на ремонт (0, если заказов не было).
 
-### 3.1. Средний стаж механиков
+1.2. Суммарные затраты на запчасти по каждому клиенту
 
-```sql
-SELECT ROUND(AVG(experience_years), 2) AS average_experience
-FROM mechanic;
-```
-
-Ожидаемый результат: среднее количество лет опыта механиков с округлением до двух знаков после запятой.
-
-### 3.2. Средняя цена запчастей из каталога
-
-```sql
-SELECT ROUND(AVG(list_price), 2) AS average_list_price
-FROM part_catalog;
-```
-
-Ожидаемый результат: средняя базовая стоимость одной позиции каталога запчастей.
-
-## 4. MIN()
-
-### 4.1. Дата самого раннего заказа
-
-```sql
-SELECT MIN(created_at) AS first_order_date
-FROM repair_order;
-```
-
-Ожидаемый результат: дата и время самого раннего зарегистрированного заказа на ремонт.
-
-### 4.2. Минимальная цена запчасти в каталоге
-
-```sql
-SELECT MIN(list_price) AS cheapest_part_price
-FROM part_catalog;
-```
-
-Ожидаемый результат: минимальная базовая цена среди всех запчастей.
-
-## 5. MAX()
-
-### 5.1. Максимальный стаж механика
-
-```sql
-SELECT MAX(experience_years) AS maximum_experience
-FROM mechanic;
-```
-
-Ожидаемый результат: наибольший стаж работы среди механиков автосервиса.
-
-### 5.2. Самая дорогая позиция запчастей в заказах
-
-```sql
-SELECT MAX(quantity * price_at_purchase) AS most_expensive_order_item
-FROM order_part;
-```
-
-Ожидаемый результат: максимальная стоимость одной позиции заказа с учётом количества запчастей.
-
-## 6. STRING_AGG()
-
-### 6.1. Перечень специализаций каждого механика
-
-```sql
 SELECT
-    m.id AS mechanic_id,
-    m.name AS mechanic_name,
-    STRING_AGG(s.name, ', ' ORDER BY s.name) AS specializations
-FROM mechanic m
-LEFT JOIN mechanic_specialization ms ON ms.mechanic_id = m.id
-LEFT JOIN specialization s ON s.id = ms.specialization_id
-GROUP BY m.id, m.name
-ORDER BY m.name, m.id;
-```
+    client.name,
+    (
+        SELECT SUM(order_part.price_at_purchase * order_part.quantity)
+        FROM car
+        JOIN repair_order ON repair_order.car_id = car.id
+        JOIN order_part ON order_part.order_id = repair_order.id
+        WHERE car.client_id = client.id
+    ) AS total_spent
+FROM client;
 
-Ожидаемый результат: каждый механик и его специализации, объединённые через запятую. Для механика без специализаций поле будет NULL.
 
-### 6.2. Список моделей автомобилей по каждой марке
+Ожидаемый результат: список всех клиентов автосервиса и общая сумма затрат на установленные запчасти по всем их заказам (NULL при отсутствии позиций).
 
-```sql
+2. Подзапросы в предложении FROM
+
+2.1. Средний стаж механиков, имеющих хотя бы один заказ
+
+SELECT ROUND(AVG(sub.experience_years), 2) AS avg_exp
+FROM (
+    SELECT
+        mechanic.experience_years,
+        COUNT(repair_order.id) AS order_count
+    FROM mechanic
+    LEFT JOIN repair_order ON repair_order.mechanic_id = mechanic.id
+    GROUP BY mechanic.id, mechanic.experience_years
+) sub
+WHERE sub.order_count > 0;
+
+
+Ожидаемый результат: единственное число — средний опыт работы (в годах) среди мастеров, на которых назначен хотя бы один ремонт.
+
+2.2. Максимальная стоимость заказа по запчастям
+
+SELECT MAX(order_cost) AS max_order_sum
+FROM (
+    SELECT
+        order_id,
+        SUM(price_at_purchase * quantity) AS order_cost
+    FROM order_part
+    GROUP BY order_id
+) t;
+
+
+Ожидаемый результат: наибольшая сумма стоимости запчастей среди всех когда-либо оформленных заказов.
+
+3. Фильтрация через предикат IN
+
+3.1. VIP-клиенты, владеющие автомобилями
+
+SELECT *
+FROM client
+WHERE is_vip = TRUE
+  AND id IN (
+      SELECT client_id
+      FROM car
+      WHERE client_id IS NOT NULL
+  );
+
+
+Ожидаемый результат: список клиентов со статусом VIP (is_vip = TRUE), за которыми в системе зарегистрирован хотя бы один автомобиль.
+
+3.2. Заказы на автомобили старше 2020 года выпуска
+
+SELECT *
+FROM repair_order
+WHERE car_id IN (
+    SELECT id
+    FROM car
+    WHERE release_year < 2020
+);
+
+
+Ожидаемый результат: все заказы на ремонт, открытые для машин с годом выпуска до 2020 года.
+
+3.3. Использованные запчасти в выполненных заказах
+
+SELECT *
+FROM order_part
+WHERE order_id IN (
+    SELECT id
+    FROM repair_order
+    WHERE status = 'Выполнен'
+);
+
+
+Ожидаемый результат: записи из таблицы позиций заказов (order_part), относящиеся строго к завершённым ремонтным работам.
+
+3.4. Клиенты, обслуживавшиеся у механика №1
+
+SELECT *
+FROM client
+WHERE id IN (
+    SELECT car.client_id
+    FROM car
+    JOIN repair_order ON repair_order.car_id = car.id
+    WHERE repair_order.mechanic_id = 1
+      AND car.client_id IS NOT NULL
+);
+
+
+Ожидаемый результат: клиенты, автомобили которых хотя бы один раз ремонтировал механик с идентификатором 1.
+
+4. Подзапросы в секции HAVING
+
+4.1. Механики с количеством заказов выше среднего
+
 SELECT
-    brand,
-    STRING_AGG(DISTINCT model, ', ' ORDER BY model) AS models
-FROM car_model
-GROUP BY brand
-ORDER BY brand;
-```
-
-Ожидаемый результат: по одной строке на марку автомобиля с перечислением всех её уникальных моделей.
-
-## 7. GROUP BY
-
-### 7.1. Количество автомобилей каждой марки
-
-```sql
-SELECT
-    cm.brand,
-    COUNT(*) AS cars_count
-FROM car c
-INNER JOIN car_model cm ON cm.id = c.model_id
-GROUP BY cm.brand
-ORDER BY cars_count DESC, cm.brand;
-```
-
-Ожидаемый результат: количество зарегистрированных автомобилей каждой марки по убыванию.
-
-### 7.2. Количество заказов в каждом статусе
-
-```sql
-SELECT
-    status,
+    mechanic_id,
     COUNT(*) AS orders_count
 FROM repair_order
-GROUP BY status
-ORDER BY orders_count DESC, status;
-```
+WHERE mechanic_id IS NOT NULL
+GROUP BY mechanic_id
+HAVING COUNT(*) > (
+    SELECT AVG(cnt)
+    FROM (
+        SELECT COUNT(*) AS cnt
+        FROM repair_order
+        WHERE mechanic_id IS NOT NULL
+        GROUP BY mechanic_id
+    ) sub
+);
 
-Ожидаемый результат: число заказов для каждого значения статуса ремонта.
 
-## 8. HAVING
+Ожидаемый результат: перечень идентификаторов механиков с количеством заказов, превышающим среднее количество заказов на одного назначенного сотрудника.
 
-### 8.1. Механики, которым назначено более одного заказа
+4.2. Заказы с затратами на запчасти выше среднего чека
 
-```sql
 SELECT
-    m.id AS mechanic_id,
-    m.name AS mechanic_name,
-    COUNT(ro.id) AS orders_count
-FROM mechanic m
-LEFT JOIN repair_order ro ON ro.mechanic_id = m.id
-GROUP BY m.id, m.name
-HAVING COUNT(ro.id) > 1
-ORDER BY orders_count DESC, m.name;
-```
+    order_id,
+    SUM(price_at_purchase * quantity) AS order_total
+FROM order_part
+GROUP BY order_id
+HAVING SUM(price_at_purchase * quantity) > (
+    SELECT AVG(order_sum)
+    FROM (
+        SELECT SUM(price_at_purchase * quantity) AS order_sum
+        FROM order_part
+        GROUP BY order_id
+    ) t
+);
 
-Ожидаемый результат: только механики, которым назначено хотя бы два заказа на ремонт.
 
-### 8.2. Клиенты, потратившие на запчасти более 5000
+Ожидаемый результат: идентификаторы заказов и их суммы затрат на запчасти, которые превышают среднюю стоимость запчастей по всем заказам.
 
-```sql
-SELECT
-    cl.id AS client_id,
-    cl.name AS client_name,
-    SUM(op.quantity * op.price_at_purchase) AS total_spent
-FROM client cl
-INNER JOIN car c ON c.client_id = cl.id
-INNER JOIN repair_order ro ON ro.car_id = c.id
-INNER JOIN order_part op ON op.order_id = ro.id
-GROUP BY cl.id, cl.name
-HAVING SUM(op.quantity * op.price_at_purchase) > 5000
-ORDER BY total_spent DESC, cl.name;
-```
+5. Предикаты ALL и ANY
 
-Ожидаемый результат: клиенты, суммарные расходы которых на запчасти во всех их заказах превышают 5000.
+5.1. Самые новые автомобили в автосервисе (ALL)
 
-## 9. GROUPING SETS
+SELECT *
+FROM car
+WHERE release_year >= ALL (
+    SELECT release_year
+    FROM car
+    WHERE release_year IS NOT NULL
+);
 
-### 9.1. Количество заказов по механикам, статусам и в целом
 
-```sql
-SELECT
-    m.id AS mechanic_id,
-    m.name AS mechanic_name,
-    ro.status,
-    COUNT(*) AS orders_count,
-    GROUPING(m.id, ro.status) AS grouping_level
-FROM repair_order ro
-INNER JOIN mechanic m ON m.id = ro.mechanic_id
-GROUP BY GROUPING SETS (
-    (m.id, m.name, ro.status),
-    (m.id, m.name),
-    (ro.status),
-    ()
-)
-ORDER BY grouping_level, mechanic_id NULLS LAST, ro.status NULLS LAST;
-```
+Ожидаемый результат: один или несколько автомобилей, имеющих максимальный год выпуска среди всех зарегистрированных машин.
 
-Ожидаемый результат: количество заказов отдельно для каждой пары «механик — статус», итоги по механикам, итоги по статусам и общий итог для заказов с назначенным механиком. `grouping_level` показывает уровень агрегирования.
+5.2. Механики с рекордным стажем (ALL)
 
-### 9.2. Количество автомобилей по марке и VIP-статусу владельца
+SELECT *
+FROM mechanic
+WHERE experience_years >= ALL (
+    SELECT experience_years
+    FROM mechanic
+    WHERE experience_years IS NOT NULL
+);
 
-```sql
-SELECT
-    cm.brand,
-    cl.is_vip,
-    COUNT(*) AS cars_count,
-    GROUPING(cm.brand, cl.is_vip) AS grouping_level
-FROM car c
-INNER JOIN car_model cm ON cm.id = c.model_id
-INNER JOIN client cl ON cl.id = c.client_id
-GROUP BY GROUPING SETS (
-    (cm.brand, cl.is_vip),
-    (cm.brand),
-    (cl.is_vip),
-    ()
-)
-ORDER BY grouping_level, cm.brand NULLS LAST, cl.is_vip NULLS LAST;
-```
 
-Ожидаемый результат: статистика автомобилей по сочетанию марки и VIP-статуса владельца, а также отдельные итоги по маркам, VIP-статусам и всем автомобилям.
+Ожидаемый результат: механик (или несколько мастеров), чей стаж равен абсолютному максимуму по компании.
 
-## 10. ROLLUP
+5.3. Автомобили не старше хотя бы одного авто клиента №1 (ANY)
 
-### 10.1. Количество автомобилей с итогами по маркам
+SELECT *
+FROM car
+WHERE release_year >= ANY (
+    SELECT release_year
+    FROM car
+    WHERE client_id = 1
+      AND release_year IS NOT NULL
+);
 
-```sql
-SELECT
-    cm.brand,
-    cm.model,
-    COUNT(*) AS cars_count,
-    GROUPING(cm.brand, cm.model) AS grouping_level
-FROM car c
-INNER JOIN car_model cm ON cm.id = c.model_id
-GROUP BY ROLLUP(cm.brand, cm.model)
-ORDER BY grouping_level, cm.brand NULLS LAST, cm.model NULLS LAST;
-```
 
-Ожидаемый результат: число автомобилей каждой модели, промежуточные итоги по маркам и общий итог по автосервису.
+Ожидаемый результат: автомобили, чей год выпуска не меньше минимального года выпуска среди автомобилей клиента с id = 1.
 
-### 10.2. Заказы по статусам и месяцам с промежуточными итогами
+5.4. Механики со стажем, равным стажу любого специалиста категории №1 (ANY)
 
-```sql
-SELECT
-    status,
-    DATE_TRUNC('month', created_at)::date AS order_month,
-    COUNT(*) AS orders_count,
-    GROUPING(status, DATE_TRUNC('month', created_at)) AS grouping_level
+SELECT *
+FROM mechanic
+WHERE experience_years = ANY (
+    SELECT mechanic.experience_years
+    FROM mechanic
+    JOIN mechanic_specialization ON mechanic_specialization.mechanic_id = mechanic.id
+    WHERE mechanic_specialization.specialization_id = 1
+);
+
+
+Ожидаемый результат: механики, стаж работы которых совпадает со стажем хотя бы одного механика, закреплённого за специализацией с id = 1.
+
+6. Проверка существования через EXISTS
+
+6.1. Клиенты с указанным адресом проживания
+
+SELECT *
+FROM client
+WHERE EXISTS (
+    SELECT 1
+    FROM client AS sub_client
+    WHERE sub_client.id = client.id
+      AND sub_client.address IS NOT NULL
+);
+
+
+Ожидаемый результат: профили клиентов, у которых поле адреса заполнено строковым значением (address IS NOT NULL).
+
+6.2. Механики с активными заказами в работе
+
+SELECT *
+FROM mechanic
+WHERE EXISTS (
+    SELECT 1
+    FROM repair_order
+    WHERE repair_order.mechanic_id = mechanic.id
+      AND repair_order.status = 'В работе'
+);
+
+
+Ожидаемый результат: сотрудники сервиса, у которых на текущий момент есть хотя бы один незавершённый ремонт в статусе «В работе».
+
+7. Сравнение составных значений (Кортежи в IN)
+
+7.1. Заказы, совпадающие с минимальными связками по статусам
+
+SELECT *
 FROM repair_order
-GROUP BY ROLLUP(status, DATE_TRUNC('month', created_at))
-ORDER BY grouping_level, status NULLS LAST, order_month NULLS LAST;
-```
+WHERE (car_id, mechanic_id) IN (
+    SELECT
+        MIN(car_id),
+        MIN(mechanic_id)
+    FROM repair_order
+    GROUP BY status
+);
 
-Ожидаемый результат: количество заказов каждого статуса за каждый месяц, итоги по статусам за все месяцы и общее количество заказов.
 
-## 11. CUBE
+Ожидаемый результат: заказы, в которых комбинация (car_id, mechanic_id) в точности совпала с парой минимальных идентификаторов автомобиля и механика, рассчитанных в рамках любого статуса.
 
-### 11.1. Количество автомобилей по VIP-статусу и марке
+7.2. Первая по алфавиту модель для каждого бренда
 
-```sql
-SELECT
-    cl.is_vip,
-    cm.brand,
-    COUNT(*) AS cars_count,
-    GROUPING(cl.is_vip, cm.brand) AS grouping_level
-FROM car c
-INNER JOIN client cl ON cl.id = c.client_id
-INNER JOIN car_model cm ON cm.id = c.model_id
-GROUP BY CUBE(cl.is_vip, cm.brand)
-ORDER BY grouping_level, cl.is_vip NULLS LAST, cm.brand NULLS LAST;
-```
+SELECT *
+FROM car_model
+WHERE (brand, model) IN (
+    SELECT
+        brand,
+        MIN(model)
+    FROM car_model
+    GROUP BY brand
+);
 
-Ожидаемый результат: количество машин для всех комбинаций VIP-статуса и марки, итоги только по статусам, только по маркам и общий итог.
 
-### 11.2. Расходы на запчасти по статусам ремонта и срокам гарантии
+Ожидаемый результат: по одной записи на каждую марку автомобиля, соответствующей первой по алфавиту модели внутри бренда.
 
-```sql
-SELECT
-    ro.status,
-    pc.warranty_months,
-    SUM(op.quantity * op.price_at_purchase) AS total_parts_cost,
-    GROUPING(ro.status, pc.warranty_months) AS grouping_level
-FROM repair_order ro
-INNER JOIN order_part op ON op.order_id = ro.id
-INNER JOIN part_catalog pc ON pc.id = op.part_id
-GROUP BY CUBE(ro.status, pc.warranty_months)
-ORDER BY grouping_level, ro.status NULLS LAST, pc.warranty_months NULLS LAST;
-```
+8. Коррелированные подзапросы со сравнением по контексту
 
-Ожидаемый результат: стоимость использованных запчастей по комбинациям статуса ремонта и гарантийного срока, промежуточные итоги по каждому признаку и общая сумма.
+8.1. Машины новее среднего возраста автопарка своего владельца
 
-## 12. SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY
+SELECT *
+FROM car AS car_outer
+WHERE release_year > (
+    SELECT AVG(car_inner.release_year)
+    FROM car AS car_inner
+    WHERE car_inner.client_id = car_outer.client_id
+);
 
-### 12.1. Марки автомобилей с ремонтами за последний год
 
-```sql
-SELECT
-    cm.brand,
-    COUNT(ro.id) AS orders_count
-FROM repair_order ro
-INNER JOIN car c ON c.id = ro.car_id
-INNER JOIN car_model cm ON cm.id = c.model_id
-WHERE ro.created_at >= CURRENT_DATE - INTERVAL '1 year'
-GROUP BY cm.brand
-HAVING COUNT(ro.id) >= 1
-ORDER BY orders_count DESC, cm.brand;
-```
+Ожидаемый результат: автомобили конкретных владельцев, чей год выпуска новее среднего арифметического года выпуска всех машин данного клиента.
 
-Ожидаемый результат: марки автомобилей, по которым за последний год был оформлен хотя бы один заказ, с количеством заказов по убыванию.
+8.2. Позиции запчастей дороже средней цены деталей в своём заказе
 
-### 12.2. Механики с дорогостоящими завершёнными ремонтами
+SELECT *
+FROM order_part AS part_outer
+WHERE price_at_purchase > (
+    SELECT AVG(part_inner.price_at_purchase)
+    FROM order_part AS part_inner
+    WHERE part_inner.order_id = part_outer.order_id
+);
 
-```sql
-SELECT
-    m.id AS mechanic_id,
-    m.name AS mechanic_name,
-    SUM(op.quantity * op.price_at_purchase) AS total_parts_cost
-FROM mechanic m
-INNER JOIN repair_order ro ON ro.mechanic_id = m.id
-INNER JOIN order_part op ON op.order_id = ro.id
-WHERE ro.status = 'Выполнен'
-GROUP BY m.id, m.name
-HAVING SUM(op.quantity * op.price_at_purchase) > 5000
-ORDER BY total_parts_cost DESC, m.name;
-```
 
-Ожидаемый результат: механики, у которых суммарная стоимость запчастей в завершённых ремонтах превышает 5000, отсортированные по величине расходов.
+Ожидаемый результат: строки из таблицы заказанных запчастей, стоимость покупки которых выше средней цены детали в рамках этого конкретного заказа.
+
+8.3. Механики со стажем выше среднего среди коллег своего профиля
+
+SELECT *
+FROM mechanic AS mech_outer
+WHERE experience_years > (
+    SELECT AVG(mech_inner.experience_years)
+    FROM mechanic AS mech_inner
+    JOIN mechanic_specialization AS spec_inner ON spec_inner.mechanic_id = mech_inner.id
+    WHERE spec_inner.specialization_id IN (
+        SELECT spec_outer.specialization_id
+        FROM mechanic_specialization AS spec_outer
+        WHERE spec_outer.mechanic_id = mech_outer.id
+    )
+);
+
+
+Ожидаемый результат: сотрудники, имеющие опыт больше среднего показателя среди всех мастеров, обладающих теми же специализациями.
+
+8.4. Заказы с числом запчастей выше среднего для данного механика
+
+SELECT *
+FROM repair_order AS order_outer
+WHERE order_outer.mechanic_id IS NOT NULL
+  AND (
+      SELECT SUM(order_part.quantity)
+      FROM order_part
+      WHERE order_part.order_id = order_outer.id
+  ) > (
+      SELECT AVG(order_qty)
+      FROM (
+          SELECT SUM(order_part_sub.quantity) AS order_qty
+          FROM repair_order AS order_inner
+          JOIN order_part AS order_part_sub ON order_part_sub.order_id = order_inner.id
+          WHERE order_inner.mechanic_id = order_outer.mechanic_id
+          GROUP BY order_inner.id
+      ) sub
+  );
+
+
+Ожидаемый результат: наряды на ремонт с назначенным мастером, в которых общее число использованных запчастей выше среднего объёма запчастей во всех заказах этого механика.
+
+8.5. VIP-клиенты с количеством машин выше среднего среди VIP-сегмента
+
+SELECT *
+FROM client AS client_outer
+WHERE is_vip = TRUE
+  AND (
+      SELECT COUNT(*)
+      FROM car
+      WHERE car.client_id = client_outer.id
+  ) > (
+      SELECT AVG(car_count)
+      FROM (
+          SELECT COUNT(*) AS car_count
+          FROM car AS car_sub
+          JOIN client AS client_sub ON client_sub.id = car_sub.client_id
+          WHERE client_sub.is_vip = TRUE
+          GROUP BY client_sub.id
+      ) sub_avg
+  );
+
+
+Ожидаемый результат: клиенты со статусом VIP, у которых в гараже зарегистрировано строго больше автомобилей, чем в среднем у клиентов из группы VIP.
